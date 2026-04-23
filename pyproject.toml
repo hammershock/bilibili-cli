@@ -1,0 +1,36 @@
+[build-system]
+requires = ["setuptools>=68", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "bilicli"
+version = "0.1.0"
+description = "Read-only Bilibili CLI tool for terminal and agent use"
+readme = "README.md"
+license = { text = "MIT" }
+requires-python = ">=3.9"
+authors = [{ name = "bilicli contributors" }]
+keywords = ["bilibili", "cli", "video", "china"]
+classifiers = [
+    "Programming Language :: Python :: 3",
+    "License :: OSI Approved :: MIT License",
+    "Operating System :: OS Independent",
+    "Environment :: Console",
+]
+dependencies = [
+    "httpx>=0.27",
+    "click>=8.1",
+    "qrcode>=7.4",
+]
+
+[project.scripts]
+bilicli = "bilicli.cli:main"
+
+[project.urls]
+Homepage = "https://github.com/bilicli/bilicli"
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.setuptools.package-dir]
+"" = "src"
