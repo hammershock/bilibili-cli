@@ -16,6 +16,30 @@ def get_video_info(client: BiliClient, bvid: str) -> Dict[str, Any]:
     return client.get(_VIEW, params={"bvid": bvid})
 
 
+def get_video_pages(client: BiliClient, bvid: str) -> List[Dict[str, Any]]:
+    """Return list of pages (parts) for a video.
+    Each item: {cid, page, part, duration}.
+    Single-part videos return a list with one element.
+    """
+    info = get_video_info(client, bvid)
+    return info.get("pages", [])
+
+
+def resolve_cid(client: BiliClient, bvid: str, page: Optional[int] = None, cid: Optional[int] = None) -> int:
+    """Resolve a CID from bvid + optional page number or explicit cid.
+    page is 1-indexed. Returns the CID for that part.
+    """
+    if cid is not None:
+        return cid
+    info = get_video_info(client, bvid)
+    if page is not None:
+        pages = info.get("pages", [])
+        if page < 1 or page > len(pages):
+            raise ValueError(f"Page {page} out of range (1-{len(pages)})")
+        return pages[page - 1]["cid"]
+    return info["cid"]
+
+
 def get_video_stat(client: BiliClient, bvid: str) -> Dict[str, Any]:
     return client.get(_STAT, params={"bvid": bvid})
 
