@@ -28,6 +28,7 @@ def _footer(items: list, start: int, total: int, hint: str) -> None:
 CONTEXT_SETTINGS = {"help_option_names": ["-h", "--help"]}
 
 POSITIVE_INT = click.IntRange(min=0)
+POSITIVE_INT_NONZERO = click.IntRange(min=1)
 
 
 class BiliGroup(click.Group):
@@ -91,7 +92,7 @@ def whoami(as_json: bool):
 # ─── Feed ──────────────────────────────────────────────────────────────────
 
 @main.command()
-@click.option("-n", "--limit", default=10, show_default=True, type=POSITIVE_INT, help="Number of recommendations")
+@click.option("-n", "--limit", default=10, show_default=True, type=POSITIVE_INT_NONZERO, help="Number of recommendations")
 @click.option("--json", "as_json", is_flag=True, help="Output as JSON")
 def feed(limit: int, as_json: bool):
     """Show recommended video feed (each run returns fresh recommendations)."""
@@ -119,7 +120,7 @@ def feed(limit: int, as_json: bool):
 
 @main.command()
 @click.argument("keyword")
-@click.option("-n", "--limit", default=10, show_default=True, type=POSITIVE_INT, help="Max results to show")
+@click.option("-n", "--limit", default=10, show_default=True, type=POSITIVE_INT_NONZERO, help="Max results to show")
 @click.option("--offset", default=0, show_default=True, type=POSITIVE_INT, help="Skip first N results")
 @click.option("--all", "show_all", is_flag=True, help="Return all results")
 @click.option("--detail", is_flag=True, help="Show author, views, duration")
@@ -171,7 +172,7 @@ def search(keyword: str, limit: int, offset: int, show_all: bool, detail: bool, 
 
 @main.command("search-user")
 @click.argument("keyword")
-@click.option("-n", "--limit", default=10, show_default=True, type=POSITIVE_INT, help="Max results to show")
+@click.option("-n", "--limit", default=10, show_default=True, type=POSITIVE_INT_NONZERO, help="Max results to show")
 @click.option("--offset", default=0, show_default=True, type=POSITIVE_INT, help="Skip first N results")
 @click.option("--all", "show_all", is_flag=True, help="Show all results")
 @click.option("--detail", is_flag=True, help="Show fans, videos, signature")
@@ -253,7 +254,7 @@ def user(mid: int, width: int, as_json: bool):
 
 @main.command("user-videos")
 @click.argument("mid", type=int)
-@click.option("-n", "--limit", default=10, show_default=True, type=POSITIVE_INT, help="Max videos to show")
+@click.option("-n", "--limit", default=10, show_default=True, type=POSITIVE_INT_NONZERO, help="Max videos to show")
 @click.option("--offset", default=0, show_default=True, type=POSITIVE_INT, help="Skip first N videos")
 @click.option("--all", "show_all", is_flag=True, help="Show all videos")
 @click.option("--order", default="pubdate", show_default=True,
@@ -372,7 +373,7 @@ def pages(bvid: str, as_json: bool):
 @click.option("--page", "page_num", type=int, default=None, help="Part number (1-indexed, for multi-part videos)")
 @click.option("--cid", type=int, default=None, help="Content ID (advanced, overrides --page)")
 @click.option("--lang", default=None, help="Language code (e.g. ai-zh, en). Default: zh* or first available")
-@click.option("-n", "--limit", default=20, show_default=True, type=POSITIVE_INT, help="Max lines to show")
+@click.option("-n", "--limit", default=20, show_default=True, type=POSITIVE_INT_NONZERO, help="Max lines to show")
 @click.option("--offset", default=0, show_default=True, type=POSITIVE_INT, help="Skip first N lines")
 @click.option("--all", "show_all", is_flag=True, help="Show all lines")
 @click.option("--json", "as_json", is_flag=True)
@@ -453,7 +454,7 @@ def subtitle_langs(bvid: str, page_num: Optional[int], cid: Optional[int], as_js
 @click.option("--page", "page_num", type=int, default=None, help="Part number (1-indexed)")
 @click.option("--cid", type=int, default=None)
 @click.option("--json", "as_json", is_flag=True)
-@click.option("-n", "--limit", default=10, show_default=True, type=POSITIVE_INT, help="Max danmaku to show")
+@click.option("-n", "--limit", default=10, show_default=True, type=POSITIVE_INT_NONZERO, help="Max danmaku to show")
 @click.option("--offset", default=0, show_default=True, type=POSITIVE_INT, help="Skip first N danmaku")
 @click.option("--all", "show_all", is_flag=True, help="Show all danmaku")
 def danmaku(bvid: str, page_num: Optional[int], cid: Optional[int], as_json: bool,
@@ -518,7 +519,7 @@ def _format_comment_pictures(content: dict) -> list:
 
 @main.command()
 @click.argument("bvid")
-@click.option("-n", "--limit", default=10, show_default=True, type=POSITIVE_INT, help="Max comments to show")
+@click.option("-n", "--limit", default=10, show_default=True, type=POSITIVE_INT_NONZERO, help="Max comments to show")
 @click.option("--offset", default=0, show_default=True, type=POSITIVE_INT, help="Skip first N comments")
 @click.option("--all", "show_all", is_flag=True, help="Show all comments")
 @click.option("--sort", default="hot", type=click.Choice(["hot", "time"]))
@@ -584,7 +585,7 @@ def comments(bvid: str, limit: int, offset: int, show_all: bool, sort: str, deta
 @main.command()
 @click.argument("bvid")
 @click.argument("rpid", type=int)
-@click.option("-n", "--limit", default=10, show_default=True, type=POSITIVE_INT, help="Max replies to show")
+@click.option("-n", "--limit", default=10, show_default=True, type=POSITIVE_INT_NONZERO, help="Max replies to show")
 @click.option("--offset", default=0, show_default=True, type=POSITIVE_INT, help="Skip first N replies")
 @click.option("--all", "show_all", is_flag=True, help="Show all replies")
 @click.option("-w", "--width", default=70, show_default=True, help="Max chars per reply (0=full)")
