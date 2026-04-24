@@ -459,11 +459,19 @@ def subtitle_langs(bvid: str, page_num: Optional[int], cid: Optional[int], as_js
 def danmaku(bvid: str, page_num: Optional[int], cid: Optional[int], as_json: bool,
             limit: int, offset: int, show_all: bool):
     """Fetch danmaku (bullet comments) for a video."""
-    from bilicli.api.video import get_video_info, get_danmaku, resolve_cid
+    from bilicli.api.video import get_video_info, get_danmaku
     client = get_client()
     try:
         info = get_video_info(client, bvid)
-        resolved_cid = resolve_cid(client, bvid, page=page_num, cid=cid)
+        if cid is not None:
+            resolved_cid = cid
+        elif page_num is not None:
+            pages = info.get("pages", [])
+            if page_num < 1 or page_num > len(pages):
+                raise ValueError(f"Page {page_num} out of range (1-{len(pages)})")
+            resolved_cid = pages[page_num - 1]["cid"]
+        else:
+            resolved_cid = info["cid"]
         all_items = get_danmaku(client, bvid, cid=resolved_cid)
     except (BiliError, ValueError) as e:
         _err(str(e))
