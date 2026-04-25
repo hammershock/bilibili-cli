@@ -314,7 +314,7 @@ def user_videos(mid: int, limit: int, offset: int, show_all: bool, order: str, d
             created = v.get("created", 0)
             ts = _time.strftime("%Y-%m-%d", _time.localtime(created)) if created else "-"
             click.echo(f"    views={play}  date={ts}")
-    _footer(items, start, total_count, "use --offset/-n to paginate, --detail to expand")
+    _footer(items, start, total_count, f"order={order}, use --offset/-n to paginate, --order to sort, --detail to expand")
 
 
 # ─── Video ─────────────────────────────────────────────────────────────────
