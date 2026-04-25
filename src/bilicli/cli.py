@@ -93,8 +93,9 @@ def whoami(as_json: bool):
 
 @main.command()
 @click.option("-n", "--limit", default=10, show_default=True, type=POSITIVE_INT_NONZERO, help="Number of recommendations")
+@click.option("--detail", is_flag=True, help="Show author, views, duration")
 @click.option("--json", "as_json", is_flag=True, help="Output as JSON")
-def feed(limit: int, as_json: bool):
+def feed(limit: int, detail: bool, as_json: bool):
     """Show recommended video feed (each run returns fresh recommendations)."""
     from bilicli.api.feed import get_feed
     client = get_client()
@@ -113,6 +114,11 @@ def feed(limit: int, as_json: bool):
         bvid = v.get("bvid", "-")
         title = truncate(v.get("title", "-"), 50)
         click.echo(f"  {bvid}  {title}")
+        if detail:
+            author = (v.get("owner") or {}).get("name", "-")
+            play = fmt_num((v.get("stat") or {}).get("view"))
+            dur = fmt_dur(v.get("duration"))
+            click.echo(f"    by {author}  views={play}  duration={dur}")
     click.echo(f"\n[{len(items)} items] each run returns fresh recommendations, use -n to adjust count")
 
 
@@ -163,10 +169,13 @@ def search(keyword: str, limit: int, offset: int, show_all: bool, detail: bool, 
         title = v.get("title", "-")
         click.echo(f"  {bvid}  {truncate(title, 50)}")
         if detail:
+            import time as _time
             author = v.get("author", "-")
             play = fmt_num(v.get("play"))
             dur = fmt_dur(v.get("duration"))
-            click.echo(f"    by {author}  views={play}  duration={dur}")
+            pubdate = v.get("pubdate", 0)
+            ts = _time.strftime("%Y-%m-%d", _time.localtime(pubdate)) if pubdate else "-"
+            click.echo(f"    by {author}  views={play}  duration={dur}  date={ts}")
     _footer(items, start, total_results, "use --offset/-n to paginate, --detail to expand")
 
 

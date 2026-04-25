@@ -21,8 +21,13 @@ def fmt_dur(seconds) -> str:
     if seconds is None:
         return "-"
     if isinstance(seconds, str):
-        # Already formatted like "12:19" or "1:02:30"
+        # Already formatted like "12:19" or "1:02:30" — normalize to zero-padded
         if ":" in seconds:
+            parts = seconds.split(":")
+            if len(parts) == 2:
+                return f"{parts[0]}:{int(parts[1]):02d}"
+            if len(parts) == 3:
+                return f"{parts[0]}:{int(parts[1]):02d}:{int(parts[2]):02d}"
             return seconds
         try:
             seconds = int(seconds)
