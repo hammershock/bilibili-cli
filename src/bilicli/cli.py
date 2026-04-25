@@ -1,5 +1,7 @@
 """CLI entry point — all bilicli commands."""
 
+import contextlib
+import functools
 import sys
 from typing import Optional
 
@@ -22,7 +24,45 @@ def _footer(items: list, start: int, total: int, hint: str) -> None:
     if not items:
         click.echo("No results.")
         return
+    if _writing_to_file:
+        return
     click.echo(f"\n[{start + 1}-{start + len(items)} of {total}] {hint}")
+
+
+# ─── Output redirection ──────────────────────────────────────────────────
+
+_writing_to_file = False
+
+
+@contextlib.contextmanager
+def _output_context(output_file):
+    """Redirect stdout to file for clean output (no footers/progress)."""
+    global _writing_to_file
+    if not output_file:
+        yield
+        return
+    _writing_to_file = True
+    with open(output_file, "w", encoding="utf-8") as f:
+        old = sys.stdout
+        sys.stdout = f
+        try:
+            yield
+        finally:
+            sys.stdout = old
+            _writing_to_file = False
+
+
+def _with_output(f):
+    """Decorator: add -o/--output for writing clean output to a file."""
+    @functools.wraps(f)
+    def wrapper(*args, output_file=None, **kwargs):
+        with _output_context(output_file):
+            return f(*args, **kwargs)
+    wrapper.__click_params__ = list(getattr(f, "__click_params__", []))
+    return click.option(
+        "-o", "--output", "output_file", default=None,
+        type=click.Path(), help="Write output to file (clean, no hints)",
+    )(wrapper)
 
 
 CONTEXT_SETTINGS = {"help_option_names": ["-h", "--help"]}
@@ -70,6 +110,7 @@ def logout():
 
 
 @main.command()
+@_with_output
 @click.option("--json", "as_json", is_flag=True, help="Output as JSON")
 def whoami(as_json: bool):
     """Show current logged-in user."""
@@ -92,6 +133,7 @@ def whoami(as_json: bool):
 # ─── Feed ──────────────────────────────────────────────────────────────────
 
 @main.command()
+@_with_output
 @click.option("-n", "--limit", default=10, show_default=True, type=POSITIVE_INT_NONZERO, help="Number of recommendations")
 @click.option("--detail", is_flag=True, help="Show author, views, duration")
 @click.option("--json", "as_json", is_flag=True, help="Output as JSON")
@@ -119,12 +161,14 @@ def feed(limit: int, detail: bool, as_json: bool):
             author = (v.get("owner") or {}).get("name", "-")
             play = fmt_num((v.get("stat") or {}).get("view"))
             click.echo(f"    by {author}  views={play}")
-    click.echo(f"\n[{len(items)} items] each run returns fresh recommendations, use -n to adjust count")
+    if not _writing_to_file:
+        click.echo(f"\n[{len(items)} items] each run returns fresh recommendations, use -n to adjust count")
 
 
 # ─── Search ────────────────────────────────────────────────────────────────
 
 @main.command()
+@_with_output
 @click.argument("keyword")
 @click.option("-n", "--limit", default=10, show_default=True, type=POSITIVE_INT_NONZERO, help="Max results to show")
 @click.option("--offset", default=0, show_default=True, type=POSITIVE_INT, help="Skip first N results")
@@ -180,6 +224,7 @@ def search(keyword: str, limit: int, offset: int, show_all: bool, detail: bool, 
 
 
 @main.command("search-user")
+@_with_output
 @click.argument("keyword")
 @click.option("-n", "--limit", default=10, show_default=True, type=POSITIVE_INT_NONZERO, help="Max results to show")
 @click.option("--offset", default=0, show_default=True, type=POSITIVE_INT, help="Skip first N results")
@@ -234,6 +279,7 @@ def search_user(keyword: str, limit: int, offset: int, show_all: bool, detail: b
 # ─── User ──────────────────────────────────────────────────────────────────
 
 @main.command()
+@_with_output
 @click.argument("mid", type=int)
 @click.option("-w", "--width", default=80, show_default=True, help="Max chars for bio (0=full)")
 @click.option("--json", "as_json", is_flag=True)
@@ -262,6 +308,7 @@ def user(mid: int, width: int, as_json: bool):
 
 
 @main.command("user-videos")
+@_with_output
 @click.argument("mid", type=int)
 @click.option("-n", "--limit", default=10, show_default=True, type=POSITIVE_INT_NONZERO, help="Max videos to show")
 @click.option("--offset", default=0, show_default=True, type=POSITIVE_INT, help="Skip first N videos")
@@ -320,6 +367,7 @@ def user_videos(mid: int, limit: int, offset: int, show_all: bool, order: str, d
 # ─── Video ─────────────────────────────────────────────────────────────────
 
 @main.command()
+@_with_output
 @click.argument("bvid")
 @click.option("-w", "--width", default=120, show_default=True, help="Max chars for desc (0=full)")
 @click.option("--json", "as_json", is_flag=True)
@@ -350,11 +398,19 @@ def video(bvid: str, width: int, as_json: bool):
     click.echo(f"Replies : {fmt_num(stat.get('reply'))}")
     desc = info.get("desc", "")
     click.echo(f"Desc    : {desc if width <= 0 else truncate(desc, width)}")
-    if len(pages) > 1:
+    click.echo(f"URL     : https://www.bilibili.com/video/{info.get('bvid')}")
+    # Cover image
+    pic = info.get("pic", "")
+    if pic:
+        if pic.startswith("//"):
+            pic = "https:" + pic
+        click.echo(f"Cover   : {pic}")
+    if len(pages) > 1 and not _writing_to_file:
         click.echo(f"\nMulti-part video: use `bilicli pages {bvid}` to list parts")
 
 
 @main.command()
+@_with_output
 @click.argument("bvid")
 @click.option("--json", "as_json", is_flag=True)
 def pages(bvid: str, as_json: bool):
@@ -374,10 +430,12 @@ def pages(bvid: str, as_json: bool):
     for p in parts:
         dur = fmt_dur(p.get("duration", 0))
         click.echo(f"  P{p['page']}  cid={p['cid']}  {dur}  {p.get('part', '')}")
-    click.echo(f"\n[{len(parts)} parts] use --page N with download/download-audio/subtitle/danmaku")
+    if not _writing_to_file:
+        click.echo(f"\n[{len(parts)} parts] use --page N with download/download-audio/subtitle/danmaku")
 
 
 @main.command()
+@_with_output
 @click.argument("bvid")
 @click.option("--page", "page_num", type=int, default=None, help="Part number (1-indexed, for multi-part videos)")
 @click.option("--cid", type=int, default=None, help="Content ID (advanced, overrides --page)")
@@ -433,6 +491,7 @@ def subtitle(bvid: str, page_num: Optional[int], cid: Optional[int], lang: Optio
 
 
 @main.command("subtitle-langs")
+@_with_output
 @click.argument("bvid")
 @click.option("--page", "page_num", type=int, default=None, help="Part number (1-indexed)")
 @click.option("--cid", type=int, default=None)
@@ -459,6 +518,7 @@ def subtitle_langs(bvid: str, page_num: Optional[int], cid: Optional[int], as_js
 
 
 @main.command()
+@_with_output
 @click.argument("bvid")
 @click.option("--page", "page_num", type=int, default=None, help="Part number (1-indexed)")
 @click.option("--cid", type=int, default=None)
@@ -527,6 +587,7 @@ def _format_comment_pictures(content: dict) -> list:
 
 
 @main.command()
+@_with_output
 @click.argument("bvid")
 @click.option("-n", "--limit", default=10, show_default=True, type=POSITIVE_INT_NONZERO, help="Max comments to show")
 @click.option("--offset", default=0, show_default=True, type=POSITIVE_INT, help="Skip first N comments")
@@ -592,6 +653,7 @@ def comments(bvid: str, limit: int, offset: int, show_all: bool, sort: str, deta
 
 
 @main.command()
+@_with_output
 @click.argument("bvid")
 @click.argument("rpid", type=int)
 @click.option("-n", "--limit", default=10, show_default=True, type=POSITIVE_INT_NONZERO, help="Max replies to show")
@@ -668,10 +730,30 @@ _QUALITY_CHOICES = {
 @click.option("--cid", type=int, default=None, help="Content ID (advanced, overrides --page)")
 @click.option("--quiet", is_flag=True, help="Suppress progress, only print final path (for agent use)")
 def download(bvid: str, quality: str, output: str, page_num: Optional[int], cid: Optional[int], quiet: bool):
-    """Download a video as MP4 (requires ffmpeg)."""
+    """Download a video as MP4 (requires ffmpeg).
+
+    Multi-part videos: downloads all parts by default, use --page N for a specific part.
+    """
     from bilicli.download import download_video
+    from bilicli.api.video import get_video_info
     client = get_client()
     qn = _QUALITY_CHOICES[quality]
+    # No specific page/cid → download all parts for multi-part videos
+    if page_num is None and cid is None:
+        try:
+            info = get_video_info(client, bvid)
+        except BiliError as e:
+            _err(str(e))
+        pages = info.get("pages", [])
+        if len(pages) > 1:
+            if not quiet:
+                click.echo(f"Multi-part video ({len(pages)} parts), downloading all...")
+            for p in pages:
+                try:
+                    download_video(client, bvid, quality=qn, output_dir=output, page=p["page"], quiet=quiet)
+                except (BiliError, RuntimeError, ValueError) as e:
+                    _err(str(e))
+            return
     try:
         download_video(client, bvid, quality=qn, output_dir=output, cid=cid, page=page_num, quiet=quiet)
     except (BiliError, RuntimeError, ValueError) as e:
@@ -685,9 +767,28 @@ def download(bvid: str, quality: str, output: str, page_num: Optional[int], cid:
 @click.option("--cid", type=int, default=None, help="Content ID (advanced, overrides --page)")
 @click.option("--quiet", is_flag=True, help="Suppress progress, only print final path (for agent use)")
 def download_audio_cmd(bvid: str, output: str, page_num: Optional[int], cid: Optional[int], quiet: bool):
-    """Download audio only as M4A (requires ffmpeg). Saves bandwidth."""
+    """Download audio only as M4A (requires ffmpeg). Saves bandwidth.
+
+    Multi-part videos: downloads all parts by default, use --page N for a specific part.
+    """
     from bilicli.download import download_audio
+    from bilicli.api.video import get_video_info
     client = get_client()
+    if page_num is None and cid is None:
+        try:
+            info = get_video_info(client, bvid)
+        except BiliError as e:
+            _err(str(e))
+        pages = info.get("pages", [])
+        if len(pages) > 1:
+            if not quiet:
+                click.echo(f"Multi-part video ({len(pages)} parts), downloading all audio...")
+            for p in pages:
+                try:
+                    download_audio(client, bvid, output_dir=output, page=p["page"], quiet=quiet)
+                except (BiliError, RuntimeError, ValueError) as e:
+                    _err(str(e))
+            return
     try:
         download_audio(client, bvid, output_dir=output, cid=cid, page=page_num, quiet=quiet)
     except (BiliError, RuntimeError, ValueError) as e:
@@ -724,6 +825,7 @@ def download_cover(bvid: str, output: str, quiet: bool):
 
 
 @main.command()
+@_with_output
 @click.argument("bvid")
 @click.option("--page", "page_num", type=int, default=None, help="Part number (1-indexed)")
 @click.option("--cid", type=int, default=None, help="Content ID (advanced, overrides --page)")
@@ -746,11 +848,11 @@ def transcribe(bvid: str, page_num: Optional[int], cid: Optional[int], model: st
 
     try:
         with tempfile.TemporaryDirectory() as tmpdir:
-            if not quiet:
+            if not quiet and not _writing_to_file:
                 click.echo("Downloading audio...")
             audio_path = download_audio(client, bvid, output_dir=tmpdir, cid=cid, page=page_num, quiet=True)
 
-            if not quiet:
+            if not quiet and not _writing_to_file:
                 click.echo("Transcribing with mlx-whisper...")
             segments = transcribe_audio(str(audio_path), model=model, language=lang)
     except (BiliError, RuntimeError, ValueError) as e:
@@ -774,5 +876,5 @@ def transcribe(bvid: str, page_num: Optional[int], cid: Optional[int], model: st
         click.echo(f"  {ts}  {seg['text']}")
     if limit > 0:
         _footer(items, start, total, "use --offset/-n to paginate")
-    else:
+    elif not _writing_to_file:
         click.echo(f"\n[{len(items)} segments]")
