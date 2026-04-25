@@ -305,6 +305,9 @@ def user(mid: int, width: int, as_json: bool):
         click.echo(f"Official: {info['official']}")
     bio = info.get("sign", "")
     click.echo(f"Bio     : {bio if width <= 0 else truncate(bio, width)}")
+    face = info.get("face", "")
+    if face:
+        click.echo(f"Avatar  : {face}")
 
 
 @main.command("user-videos")
@@ -384,9 +387,10 @@ def video(bvid: str, width: int, as_json: bool):
         return
     stat = info.get("stat") or {}
     pages = info.get("pages") or []
+    owner = info.get("owner") or {}
     click.echo(f"BVID    : {info.get('bvid')}")
     click.echo(f"Title   : {info.get('title')}")
-    click.echo(f"Author  : {(info.get('owner') or {}).get('name')}")
+    click.echo(f"Author  : {owner.get('name')}  (UID: {owner.get('mid', '-')})")
     click.echo(f"Duration: {fmt_dur(info.get('duration'))}")
     if len(pages) > 1:
         click.echo(f"Pages   : {len(pages)}")
@@ -405,6 +409,9 @@ def video(bvid: str, width: int, as_json: bool):
         if pic.startswith("//"):
             pic = "https:" + pic
         click.echo(f"Cover   : {pic}")
+    face = owner.get("face", "")
+    if face:
+        click.echo(f"Avatar  : {face}")
     if len(pages) > 1 and not _writing_to_file:
         click.echo(f"\nMulti-part video: use `bilicli pages {bvid}` to list parts")
 
