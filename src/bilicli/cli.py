@@ -112,13 +112,13 @@ def feed(limit: int, detail: bool, as_json: bool):
         return
     for v in items:
         bvid = v.get("bvid", "-")
+        dur = fmt_dur(v.get("duration"))
         title = truncate(v.get("title", "-"), 50)
-        click.echo(f"  {bvid}  {title}")
+        click.echo(f"  {bvid}  {dur:>8s}  {title}")
         if detail:
             author = (v.get("owner") or {}).get("name", "-")
             play = fmt_num((v.get("stat") or {}).get("view"))
-            dur = fmt_dur(v.get("duration"))
-            click.echo(f"    by {author}  views={play}  duration={dur}")
+            click.echo(f"    by {author}  views={play}")
     click.echo(f"\n[{len(items)} items] each run returns fresh recommendations, use -n to adjust count")
 
 
@@ -166,16 +166,16 @@ def search(keyword: str, limit: int, offset: int, show_all: bool, detail: bool, 
         return
     for v in items:
         bvid = v.get("bvid", "-")
+        dur = fmt_dur(v.get("duration"))
         title = v.get("title", "-")
-        click.echo(f"  {bvid}  {truncate(title, 50)}")
+        click.echo(f"  {bvid}  {dur:>8s}  {truncate(title, 50)}")
         if detail:
             import time as _time
             author = v.get("author", "-")
             play = fmt_num(v.get("play"))
-            dur = fmt_dur(v.get("duration"))
             pubdate = v.get("pubdate", 0)
             ts = _time.strftime("%Y-%m-%d", _time.localtime(pubdate)) if pubdate else "-"
-            click.echo(f"    by {author}  views={play}  duration={dur}  date={ts}")
+            click.echo(f"    by {author}  views={play}  date={ts}")
     _footer(items, start, total_results, "use --offset/-n to paginate, --detail to expand")
 
 
@@ -306,14 +306,14 @@ def user_videos(mid: int, limit: int, offset: int, show_all: bool, order: str, d
         return
     for v in items:
         bvid = v.get("bvid", "-")
+        dur = fmt_dur(v.get("length") or v.get("duration"))
         title = truncate(v.get("title", "-"), 50)
-        click.echo(f"  {bvid}  {title}")
+        click.echo(f"  {bvid}  {dur:>8s}  {title}")
         if detail:
             play = fmt_num(v.get("play"))
-            dur = fmt_dur(v.get("length") or v.get("duration"))
             created = v.get("created", 0)
             ts = _time.strftime("%Y-%m-%d", _time.localtime(created)) if created else "-"
-            click.echo(f"    views={play}  duration={dur}  date={ts}")
+            click.echo(f"    views={play}  date={ts}")
     _footer(items, start, total_count, "use --offset/-n to paginate, --detail to expand")
 
 
